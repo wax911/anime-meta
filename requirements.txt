@@ -1,0 +1,7 @@
+requests
+pymongo
+uplink
+dacite
+Unidecode
+mongo-thingy
+requests_oauthlib

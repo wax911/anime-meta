@@ -5,3 +5,4 @@ dacite
 Unidecode
 mongo-thingy
 requests_oauthlib
+dependency_injector

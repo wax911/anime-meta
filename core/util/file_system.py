@@ -1,45 +1,49 @@
 import os
-import json
+import sys
+from logging.handlers import TimedRotatingFileHandler
+from typing import Union
+
+import yaml
 import logging
-from typing import Any
+
 from pathlib import Path
-from datetime import datetime
+from logging import Formatter, StreamHandler, Logger
 
 
-class InputOutputHelper:
+class FileSystem:
 
     @staticmethod
     def __get_base_dir():
         current_path = os.path.abspath(os.path.dirname(__file__))
-        return os.path.join(current_path, '..')
+        return os.path.join(current_path, '..', '..')
 
     @staticmethod
     def get_input_directory():
-        base_dir = InputOutputHelper.__get_base_dir()
-        return os.path.join(base_dir, 'auth')
+        base_dir = FileSystem.__get_base_dir()
+        return os.path.join(base_dir, 'config')
 
     @staticmethod
     def get_output_directory():
-        base_dir = InputOutputHelper.__get_base_dir()
-        return os.path.join(base_dir, 'auth')
+        base_dir = FileSystem.__get_base_dir()
+        return os.path.join(base_dir, 'config')
 
     @staticmethod
     def get_file_contents(file_name):
-        input_dir = InputOutputHelper.get_input_directory()
+        input_dir = FileSystem.get_input_directory()
         with open(os.path.join(input_dir, file_name)) as file:
-            input_data = json.loads(file.read())
+            input_data = yaml.safe_load(file)
         return input_data
 
     @staticmethod
     def create_directory(directory_path):
-        creation_path = os.path.join(InputOutputHelper.get_output_directory(), directory_path)
+        creation_path = os.path.join(FileSystem.get_output_directory(), directory_path)
         if not os.path.exists(creation_path):
             path = Path(creation_path)
             path.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def create_file(directory_path, filename, contents) -> str:
-        creation_path = os.path.join(InputOutputHelper.get_output_directory(), directory_path)
+        creation_path = os.path.join(FileSystem.get_output_directory(), directory_path)
         if not os.path.exists(creation_path):
             path = Path(creation_path)
             path.mkdir(parents=True, exist_ok=True)
@@ -48,47 +52,40 @@ class InputOutputHelper:
         return os.path.join(directory_path, filename)
 
 
-class EventLogHelper:
+class Logging(Logger):
+    __FORMATTER = "%(asctime)s — %(name)s — %(levelname)s — %(funcName)s:%(lineno)d — %(message)s"
 
-    @staticmethod
-    def __get_current_date_time() -> Any:
-        return datetime.now().strftime("%Y-%m-%d")
+    def __init__(
+            self,
+            name: str,
+            log_file_name: str = 'anitrend.api',
+            log_format: str = __FORMATTER,
+            level: Union[int, str] = logging.DEBUG,
+            *args,
+            **kwargs
+     ) -> None:
+        super().__init__(name, level)
+        self.formatter = Formatter(log_format)
+        self.file_name = log_file_name
+        self.addHandler(self.__get_stream_handler())
+        self.addHandler(self.__get_file_handler())
 
-    @staticmethod
-    def __get_log_file(postfix: str) -> str:
-        file_name = f'{EventLogHelper.__get_current_date_time()} - {postfix}.log'
+    def __get_log_file(self) -> str:
+        file_name = f'{self.file_name}.log'
         current_directory = os.path.abspath(os.path.dirname(__file__))
         directory_path = os.path.join(current_directory, '..', '..', 'logs')
-        return InputOutputHelper.create_file(directory_path, file_name, '')
+        return FileSystem.create_file(directory_path, file_name, '')
 
-    @staticmethod
-    def log_info(message: Any):
-        logging.basicConfig(filename=EventLogHelper.__get_log_file("INFO"),
-                            format='%(asctime)s | %(levelname)s | %(message)s',
-                            datefmt='%d/%m/%Y %I:%M:%S %p', level=logging.INFO)
-        logger = logging.getLogger(__name__)
-        logger.info(f"{message}")
+    def __get_file_handler(self) -> TimedRotatingFileHandler:
+        handler = TimedRotatingFileHandler(
+            filename=self.__get_log_file(),
+            when='midnight',
+            backupCount=5
+        )
+        handler.setFormatter(self.formatter)
+        return handler
 
-    @staticmethod
-    def log_warning(message: Any):
-        logging.basicConfig(filename=EventLogHelper.__get_log_file("WARNING"),
-                            format='%(asctime)s | %(levelname)s | %(message)s',
-                            datefmt='%d/%m/%Y %I:%M:%S %p', level=logging.WARNING)
-        logger = logging.getLogger(__name__)
-        logger.warning(f"{message}")
-
-    @staticmethod
-    def log_error(message: Any):
-        logging.basicConfig(filename=EventLogHelper.__get_log_file("ERROR"),
-                            format='%(asctime)s | %(levelname)s | %(message)s',
-                            datefmt='%d/%m/%Y %I:%M:%S %p', level=logging.ERROR)
-        logger = logging.getLogger(__name__)
-        logger.error(f"{message}")
-
-    @staticmethod
-    def log_critical(message: Any):
-        logging.basicConfig(filename=EventLogHelper.__get_log_file("CRITICAL"),
-                            format='%(asctime)s | %(levelname)s | %(message)s',
-                            datefmt='%d/%m/%Y %I:%M:%S %p', level=logging.CRITICAL)
-        logger = logging.getLogger(__name__)
-        logger.critical(f"{message}")
+    def __get_stream_handler(self) -> StreamHandler:
+        handler = StreamHandler(sys.stdout)
+        handler.setFormatter(self.formatter)
+        return handler

@@ -2,16 +2,14 @@ from dataclasses import dataclass
 
 
 @dataclass()
-class Oauth:
-    key: str
-    secret: str
+class SigningPolicy:
+    name: str
+    path: str
+    value: str
+    expires: int
 
-
-@dataclass()
-class Authentication:
-    client: str
-    apiKey: str
-    hostName: str
-    collection: str
-    authenticator: str
-    oauth: Oauth
+    def __iter__(self):
+        yield 'name', self.name
+        yield 'path', self.path
+        yield 'value', self.value
+        yield 'expires', self.expires

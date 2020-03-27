@@ -4,13 +4,6 @@ from requests import Response
 
 
 @dataclass()
-class Parameters:
-    service: Optional[str]
-    username: Optional[str]
-    password: Optional[str]
-
-
-@dataclass()
 class ResponseWrapper:
     body: Optional[dict]
     href: Optional[str]
@@ -31,4 +24,31 @@ class ResponseWrapper:
         return u'<VRVResponse: {}>'.format(self.class_attr)
 
 
+@dataclass()
+class Oauth:
+    key: str
+    secret: str
 
+
+@dataclass()
+class Configuration:
+    client: str
+    apiKey: str
+    hostName: str
+    authenticator: str
+    oauth: Oauth
+    timeZone: str
+    logLevel: str
+
+
+@dataclass()
+class Parameters:
+    service: Optional[str]
+    username: Optional[str]
+    password: Optional[str]
+
+
+@dataclass
+class LoginQuery:
+    username: str
+    password: str

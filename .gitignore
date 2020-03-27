@@ -197,5 +197,14 @@ dmypy.json
 
 # End of https://www.gitignore.io/api/python,pycharm
 
-# auth files
-data/auth/secrets.json
+# Config files
+config/configuration.yaml
+
+# Log files
+logs/
+
+# Sample files
+samples/
+
+# Virtual environment
+venv/

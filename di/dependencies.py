@@ -2,14 +2,22 @@ import dependency_injector.containers as containers
 import dependency_injector.providers as providers
 
 from data import NetworkUtil, DatabaseUtil, LoggingUtil, TimeUtil
-from data.source import AuthenticationEndpoint, DiscoverEndpoint, CollectionEndpoint
-from data.source.local_sources import IndexDao, PanelDao, SeriesDao, SeasonDao, EpisodeDao, MovieDao, AuthenticationDao
+from data.mapper import SigningPolicyMapper, IndexMapper, PanelMapper, SeasonMapper, \
+    SeriesMapper, MovieMapper, EpisodeMapper
+from data.source import AuthenticationEndpoint, DiscoverEndpoint, CollectionEndpoint, DetailEndpoint
+from data.source.local_sources import IndexDao, PanelDao, SeriesDao, SeasonDao, EpisodeDao, \
+    MovieDao, AuthenticationDao, CacheLogDao
 
-from data.repository import AuthenticationRepository, EpisodesRepository, IndexRepository, \
-    MovieEpisodesRepository, MovieRepository, PanelRepository, SeasonsRepository, SeriesRepository
+from data.repository import AuthenticationRepository, EpisodeRepository, IndexRepository, \
+    MovieRepository, PanelRepository, SeasonRepository, SeriesRepository
+from data.type_registry import CacheLogEntityCodec, SigningPolicyEntityCodec, IndexEntityCodec, PanelEntityCodec, \
+    SeasonEntityCodec, SeriesEntityCodec, EpisodeEntityCodec, MovieEntityCodec, ImageEntityCodec, \
+    ImageContainerEntityCodec, SearchMetaEntityCodec, AdBreakEntityCodec
 
-from data.usecase import AuthenticationUseCase, EpisodesUseCase, IndexUseCase, MovieEpisodesUseCase, \
-    MovieUseCase, PanelUseCase, SeasonsUseCase, SeriesUseCase
+from data.usecase import AuthenticationUseCase, EpisodeUseCase, IndexUseCase, \
+    MovieUseCase, PanelUseCase, SeasonUseCase, SeriesUseCase
+
+from data.source import CacheLogUtil
 
 
 class UtilityClientScopeProvider(containers.DeclarativeContainer):
@@ -21,50 +29,145 @@ class UtilityClientScopeProvider(containers.DeclarativeContainer):
     network_client = providers.Singleton(NetworkUtil)
 
 
+class MapperScopeProvider(containers.DeclarativeContainer):
+    """IoC container of mapper providers."""
+    singing_policy_mapper = providers.Factory(
+        SigningPolicyMapper,
+        logging_client=UtilityClientScopeProvider.logging_client(),
+        time_zone_client=UtilityClientScopeProvider.time_zone_client()
+    )
+    index_mapper = providers.Factory(
+        IndexMapper,
+        logging_client=UtilityClientScopeProvider.logging_client()
+    )
+    panel_mapper = providers.Factory(
+        PanelMapper,
+        logging_client=UtilityClientScopeProvider.logging_client()
+    )
+    seasons_mapper = providers.Factory(
+        SeasonMapper,
+        logging_client=UtilityClientScopeProvider.logging_client()
+    )
+    series_mapper = providers.Factory(
+        SeriesMapper,
+        logging_client=UtilityClientScopeProvider.logging_client()
+    )
+    movies_mapper = providers.Factory(
+        MovieMapper,
+        logging_client=UtilityClientScopeProvider.logging_client()
+    )
+    episodes_mapper = providers.Factory(
+        EpisodeMapper,
+        logging_client=UtilityClientScopeProvider.logging_client()
+    )
+
+
 class LocalSourceProvider:
     """Container of local sources providers."""
 
+    cache_collection = providers.Singleton(
+        CacheLogDao,
+        logger_client=UtilityClientScopeProvider.logging_client(),
+        timezone_client=UtilityClientScopeProvider.time_zone_client(),
+        database_client=UtilityClientScopeProvider.database_client(),
+        type_codecs=[
+            CacheLogEntityCodec()
+        ]
+    )
     auth_collection = providers.Singleton(
         AuthenticationDao,
         logger_client=UtilityClientScopeProvider.logging_client(),
         timezone_client=UtilityClientScopeProvider.time_zone_client(),
-        database_client=UtilityClientScopeProvider.database_client()
+        database_client=UtilityClientScopeProvider.database_client(),
+        type_codecs=[
+            SigningPolicyEntityCodec()
+        ],
+        mapper=MapperScopeProvider.singing_policy_mapper()
     )
     index_collection = providers.Singleton(
         IndexDao,
         logger_client=UtilityClientScopeProvider.logging_client(),
         timezone_client=UtilityClientScopeProvider.time_zone_client(),
-        database_client=UtilityClientScopeProvider.database_client()
+        database_client=UtilityClientScopeProvider.database_client(),
+        type_codecs=[
+            IndexEntityCodec()
+        ],
+        mapper=MapperScopeProvider.index_mapper()
     )
     panel_collection = providers.Singleton(
         PanelDao,
         logger_client=UtilityClientScopeProvider.logging_client(),
         timezone_client=UtilityClientScopeProvider.time_zone_client(),
-        database_client=UtilityClientScopeProvider.database_client()
+        database_client=UtilityClientScopeProvider.database_client(),
+        type_codecs=[
+            PanelEntityCodec(),
+            ImageContainerEntityCodec(),
+            ImageEntityCodec(),
+            MovieEntityCodec(),
+            SeriesEntityCodec(),
+            SearchMetaEntityCodec()
+        ],
+        mapper=MapperScopeProvider.panel_mapper()
     )
     series_collection = providers.Singleton(
         SeriesDao,
         logger_client=UtilityClientScopeProvider.logging_client(),
         timezone_client=UtilityClientScopeProvider.time_zone_client(),
-        database_client=UtilityClientScopeProvider.database_client()
+        database_client=UtilityClientScopeProvider.database_client(),
+        type_codecs=[
+            SeriesEntityCodec(),
+            ImageContainerEntityCodec(),
+            ImageEntityCodec()
+        ],
+        mapper=MapperScopeProvider.series_mapper()
     )
     season_collection = providers.Singleton(
         SeasonDao,
         logger_client=UtilityClientScopeProvider.logging_client(),
         timezone_client=UtilityClientScopeProvider.time_zone_client(),
-        database_client=UtilityClientScopeProvider.database_client()
+        database_client=UtilityClientScopeProvider.database_client(),
+        type_codecs=[
+            SeasonEntityCodec(),
+            ImageContainerEntityCodec(),
+            ImageEntityCodec()
+        ],
+        mapper=MapperScopeProvider.seasons_mapper()
     )
     episode_collection = providers.Singleton(
         EpisodeDao,
         logger_client=UtilityClientScopeProvider.logging_client(),
         timezone_client=UtilityClientScopeProvider.time_zone_client(),
-        database_client=UtilityClientScopeProvider.database_client()
+        database_client=UtilityClientScopeProvider.database_client(),
+        type_codecs=[
+            EpisodeEntityCodec(),
+            ImageContainerEntityCodec(),
+            ImageEntityCodec(),
+            AdBreakEntityCodec()
+        ],
+        mapper=MapperScopeProvider.episodes_mapper()
     )
     movie_collection = providers.Singleton(
         MovieDao,
         logger_client=UtilityClientScopeProvider.logging_client(),
         timezone_client=UtilityClientScopeProvider.time_zone_client(),
-        database_client=UtilityClientScopeProvider.database_client()
+        database_client=UtilityClientScopeProvider.database_client(),
+        type_codecs=[
+            MovieEntityCodec(),
+            ImageContainerEntityCodec(),
+            ImageEntityCodec()
+        ],
+        mapper=MapperScopeProvider.movies_mapper()
+    )
+
+
+class SourceUtilityProvider(containers.DeclarativeContainer):
+    """IoC container for cache utility"""
+
+    cache_client = providers.Factory(
+        CacheLogUtil,
+        local_source=LocalSourceProvider.cache_collection(),
+        logging_client=UtilityClientScopeProvider.logging_client(),
+        timezone_client=UtilityClientScopeProvider.time_zone_client()
     )
 
 
@@ -87,6 +190,11 @@ class RemoteSourceProvider(containers.DeclarativeContainer):
         base_url=NetworkUtil.get_collection_url(),
         client=__session_client
     )
+    detail_endpoint = providers.Singleton(
+        DetailEndpoint,
+        base_url=NetworkUtil.get_collection_url(),
+        client=__session_client
+    )
 
 
 class RepositoryProvider(containers.DeclarativeContainer):
@@ -99,47 +207,52 @@ class RepositoryProvider(containers.DeclarativeContainer):
         local_source=LocalSourceProvider.auth_collection()
     )
     episodes_repository = providers.Factory(
-        EpisodesRepository,
+        EpisodeRepository,
         logging_client=UtilityClientScopeProvider.logging_client(),
         remote_source=RemoteSourceProvider.collection_endpoint,
-        local_source=LocalSourceProvider.episode_collection()
+        local_source=LocalSourceProvider.episode_collection(),
+        cache_log_client=SourceUtilityProvider.cache_client,
+        authentication_repository=authentication_repository()
     )
     index_repository = providers.Factory(
         IndexRepository,
         logging_client=UtilityClientScopeProvider.logging_client(),
         remote_source=RemoteSourceProvider.discover_endpoint,
         local_source=LocalSourceProvider.index_collection(),
+        cache_log_client=SourceUtilityProvider.cache_client,
         authentication_repository=authentication_repository()
-    )
-    movie_episodes_repository = providers.Factory(
-        MovieEpisodesRepository,
-        logging_client=UtilityClientScopeProvider.logging_client(),
-        remote_source=RemoteSourceProvider.collection_endpoint,
-        local_source=LocalSourceProvider.episode_collection()
     )
     movie_repository = providers.Factory(
         MovieRepository,
         logging_client=UtilityClientScopeProvider.logging_client(),
-        remote_source=RemoteSourceProvider.collection_endpoint,
-        local_source=LocalSourceProvider.movie_collection()
+        remote_source=RemoteSourceProvider.detail_endpoint,
+        local_source=LocalSourceProvider.movie_collection(),
+        cache_log_client=SourceUtilityProvider.cache_client,
+        authentication_repository=authentication_repository()
     )
     panel_repository = providers.Factory(
         PanelRepository,
         logging_client=UtilityClientScopeProvider.logging_client(),
         remote_source=RemoteSourceProvider.discover_endpoint,
-        local_source=LocalSourceProvider.panel_collection()
+        local_source=LocalSourceProvider.panel_collection(),
+        cache_log_client=SourceUtilityProvider.cache_client,
+        authentication_repository=authentication_repository()
     )
     seasons_repository = providers.Factory(
-        SeasonsRepository,
+        SeasonRepository,
         logging_client=UtilityClientScopeProvider.logging_client(),
         remote_source=RemoteSourceProvider.collection_endpoint,
-        local_source=LocalSourceProvider.season_collection()
+        local_source=LocalSourceProvider.season_collection(),
+        cache_log_client=SourceUtilityProvider.cache_client,
+        authentication_repository=authentication_repository()
     )
     series_repository = providers.Factory(
         SeriesRepository,
         logging_client=UtilityClientScopeProvider.logging_client(),
-        remote_source=RemoteSourceProvider.collection_endpoint,
-        local_source=LocalSourceProvider.series_collection()
+        remote_source=RemoteSourceProvider.detail_endpoint,
+        local_source=LocalSourceProvider.series_collection(),
+        cache_log_client=SourceUtilityProvider.cache_client,
+        authentication_repository=authentication_repository()
     )
 
 
@@ -152,7 +265,7 @@ class UseCaseProvider(containers.DeclarativeContainer):
         repository=RepositoryProvider.authentication_repository
     )
     episodes_use_case = providers.Factory(
-        EpisodesUseCase,
+        EpisodeUseCase,
         logging_client=UtilityClientScopeProvider.logging_client(),
         repository=RepositoryProvider.episodes_repository
     )
@@ -160,11 +273,6 @@ class UseCaseProvider(containers.DeclarativeContainer):
         IndexUseCase,
         logging_client=UtilityClientScopeProvider.logging_client(),
         repository=RepositoryProvider.index_repository
-    )
-    movie_episodes_use_case = providers.Factory(
-        MovieEpisodesUseCase,
-        logging_client=UtilityClientScopeProvider.logging_client(),
-        repository=RepositoryProvider.movie_episodes_repository
     )
     movie_use_case = providers.Factory(
         MovieUseCase,
@@ -177,7 +285,7 @@ class UseCaseProvider(containers.DeclarativeContainer):
         repository=RepositoryProvider.panel_repository
     )
     seasons_use_case = providers.Factory(
-        SeasonsUseCase,
+        SeasonUseCase,
         logging_client=UtilityClientScopeProvider.logging_client(),
         repository=RepositoryProvider.seasons_repository
     )

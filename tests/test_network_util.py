@@ -4,10 +4,11 @@ from di import UtilityClientScopeProvider
 
 
 class TestNetworkUtil(TestCase):
+    __network_util: NetworkUtil
 
     def setUp(self) -> None:
         super().setUp()
-        self.__network_util: NetworkUtil = UtilityClientScopeProvider.network_client()
+        self.__network_util = UtilityClientScopeProvider.network_client()
 
     def test_create_session(self):
         result = self.__network_util.create_session()

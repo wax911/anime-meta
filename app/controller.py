@@ -28,10 +28,9 @@ class Main:
             ).start_service()
         except Exception as error:
             self.__logger.error(
-                "Unhandled exception thrown from service: `%s`",
-                self.__parameters.service,
+                f'Unhandled exception thrown from service: `{self.__parameters.service}`',
                 exc_info=error
             )
         finally:
-            self.__logger.info("Closing database..")
+            self.__logger.info("Attempting to close database connection..")
             self.__database_client.disconnect()

@@ -10,19 +10,16 @@ def __description() -> str:
 
 
 def __usage() -> str:
-    return "vrv-meta.py --service vrv"
+    return "vrv-meta.py --service crunchyroll"
 
 
 def __init_cli() -> argparse:
     parser = argparse.ArgumentParser(description=__description(), usage=__usage())
     parser.add_argument(
-        '-s', '--service', default='usecase', help="generate using the specified service"
+        '-s', '--service', help="generate using the specified service"
     )
     parser.add_argument(
-        '-u', '--username', help="username for the selected service"
-    )
-    parser.add_argument(
-        '-p', '--password', help="password for the selected service"
+        '-c', '--credentials', help="credentials to use for logging in"
     )
     return parser
 
@@ -41,7 +38,9 @@ if __name__ == '__main__':
     __cli_args = __init_cli().parse_args()
     __parameters = Parameters(
         __cli_args.service,
-        __cli_args.username,
-        __cli_args.password
+        __cli_args.credentials
     )
-    __init_app(__parameters)
+    try:
+        __init_app(__parameters)
+    except KeyboardInterrupt as e:
+        pass

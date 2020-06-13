@@ -1,1 +1,1 @@
-from .contracts import CorePresenter, CoreInteractor
+from .contracts import CoreInteractor

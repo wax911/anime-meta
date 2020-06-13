@@ -1,9 +1,8 @@
 from .use_cases import \
     AuthenticationUseCase, \
-    EpisodesUseCase,\
+    EpisodeUseCase,\
     IndexUseCase, \
-    MovieEpisodesUseCase, \
     MovieUseCase, \
     PanelUseCase, \
-    SeasonsUseCase, \
+    SeasonUseCase, \
     SeriesUseCase

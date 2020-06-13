@@ -3,7 +3,7 @@ from di import UtilityClientScopeProvider, \
     RepositoryProvider, \
     LocalSourceProvider, \
     RemoteSourceProvider, \
-    UseCaseProvider
+    UseCaseProvider, MapperScopeProvider, SourceUtilityProvider
 
 
 class Test(TestCase):
@@ -39,6 +39,8 @@ class Test(TestCase):
         self.assertIsNotNone(collection_endpoint)
         discover_endpoint = RemoteSourceProvider.discover_endpoint()
         self.assertIsNotNone(discover_endpoint)
+        detail_endpoint = RemoteSourceProvider.detail_endpoint()
+        self.assertIsNotNone(detail_endpoint)
 
     def test_repository_provider(self):
         authentication_repository = RepositoryProvider.authentication_repository()
@@ -47,8 +49,6 @@ class Test(TestCase):
         self.assertIsNotNone(episodes_repository)
         index_repository = RepositoryProvider.index_repository()
         self.assertIsNotNone(index_repository)
-        movie_episodes_repository = RepositoryProvider.movie_episodes_repository()
-        self.assertIsNotNone(movie_episodes_repository)
         movie_repository = RepositoryProvider.movie_repository()
         self.assertIsNotNone(movie_repository)
         panel_repository = RepositoryProvider.panel_repository()
@@ -65,8 +65,6 @@ class Test(TestCase):
         self.assertIsNotNone(episodes_use_case)
         index_use_case = UseCaseProvider.index_use_case()
         self.assertIsNotNone(index_use_case)
-        movie_episodes_use_case = UseCaseProvider.movie_episodes_use_case()
-        self.assertIsNotNone(movie_episodes_use_case)
         movie_use_case = UseCaseProvider.movie_use_case()
         self.assertIsNotNone(movie_use_case)
         panel_use_case = UseCaseProvider.panel_use_case()
@@ -75,3 +73,23 @@ class Test(TestCase):
         self.assertIsNotNone(seasons_use_case)
         series_use_case = UseCaseProvider.series_use_case()
         self.assertIsNotNone(series_use_case)
+
+    def test_mapper_provider(self):
+        singing_policy_mapper = MapperScopeProvider.singing_policy_mapper()
+        self.assertIsNotNone(singing_policy_mapper)
+        index_mapper = MapperScopeProvider.index_mapper()
+        self.assertIsNotNone(index_mapper)
+        panel_mapper = MapperScopeProvider.panel_mapper()
+        self.assertIsNotNone(panel_mapper)
+        seasons_mapper = MapperScopeProvider.seasons_mapper()
+        self.assertIsNotNone(seasons_mapper)
+        series_mapper = MapperScopeProvider.series_mapper()
+        self.assertIsNotNone(series_mapper)
+        movies_mapper = MapperScopeProvider.movies_mapper()
+        self.assertIsNotNone(movies_mapper)
+        episodes_mapper = MapperScopeProvider.episodes_mapper()
+        self.assertIsNotNone(episodes_mapper)
+
+    def test_cache_util_provider(self):
+        cache_client = SourceUtilityProvider.cache_client()
+        self.assertIsNotNone(cache_client)

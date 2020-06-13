@@ -1,9 +1,8 @@
 from .repositories import \
     AuthenticationRepository, \
-    EpisodesRepository,\
+    EpisodeRepository,\
     IndexRepository, \
-    MovieEpisodesRepository, \
     MovieRepository, \
     PanelRepository, \
-    SeasonsRepository, \
+    SeasonRepository, \
     SeriesRepository

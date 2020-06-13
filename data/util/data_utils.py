@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, tzinfo
 import logging
 from logging import Logger
 from typing import Dict
@@ -8,8 +8,6 @@ from pytz import BaseTzInfo
 from requests_oauthlib import OAuth1Session
 
 from core.util.file_system import FileSystem, Logging
-
-from mongo_thingy import connect, disconnect
 
 from domain.model import Configuration, Oauth
 
@@ -29,7 +27,7 @@ class LoggingUtil:
 class BaseUtil(object):
 
     def __init__(self) -> None:
-        self._log = LoggingUtil().get_default_logger(__name__)
+        self._logger = LoggingUtil().get_default_logger(__name__)
         self._configuration = self.__build_configuration(
             FileSystem.get_file_contents('configuration.yaml')
         )
@@ -53,46 +51,35 @@ class BaseUtil(object):
 class DatabaseUtil(BaseUtil):
 
     def create_connection_string(self) -> str:
-        __schema = "mongodb://"
+        __schema = 'mongodb://'
         __client = self._configuration.client
         __authenticator = self._configuration.authenticator
-        __apiKey = self._configuration.apiKey
-        __hostName = self._configuration.hostName
-        return f"{__schema}{__client}:{__apiKey}@{__hostName}/{__authenticator}"
+        __api_key = self._configuration.apiKey
+        __host_name = self._configuration.hostName
+        return f'{__schema}{__client}:{__api_key}@{__host_name}/{__authenticator}'
 
-    def connect(self):
-        try:
-            connect(self.create_connection_string())
-        except Exception as e:
-            self._log.error("Unable to connect to database", exc_info=e)
-
-    def disconnect(self):
-        try:
-            disconnect()
-        except Exception as e:
-            self._log.error("Unable to disconnect from database", exc_info=e)
+    def disconnect(self) -> None:
+        from data.source.local_sources import Dao
+        Dao.close_database(self._logger)
 
 
 class TimeUtil(BaseUtil):
-
     TIME_FORMAT_TEMPLATE = '%Y-%m-%dT%H:%M:%S%z'
 
     @staticmethod
     def default_timezone() -> BaseTzInfo:
         return pytz.utc
 
-    def __get_current_tz(self):
+    def __get_current_tz(self) -> tzinfo:
         timezone = self._configuration.timeZone
-        self._log.debug(f"Current timezone in configuration: {timezone}")
         return pytz.timezone(timezone)
 
     def as_local_time(self, time_unit: str, time_unit_format: str = TIME_FORMAT_TEMPLATE) -> datetime:
         tz = self.__get_current_tz()
         current_time_unit = datetime.strptime(time_unit, time_unit_format)
         local_time = current_time_unit.astimezone(tz)
-        self._log.debug(
-            'Converted `%s` to local time of `%s` using time format: `%s`',
-            time_unit, local_time, time_unit_format
+        self._logger.debug(
+            f'Converted `{time_unit}` to local time of `{local_time}` using time format: `{time_unit_format}`'
         )
         return local_time
 
@@ -108,6 +95,11 @@ class TimeUtil(BaseUtil):
     def from_date_time_to_time_stamp(time_unit: datetime) -> int:
         return int(time_unit.timestamp())
 
+    def get_current_timestamp(self) -> int:
+        current_date_time = self.get_current_time()
+        current_time_stamp = self.from_date_time_to_time_stamp(current_date_time)
+        return current_time_stamp
+
 
 class NetworkUtil(BaseUtil):
 
@@ -120,7 +112,7 @@ class NetworkUtil(BaseUtil):
         return session
 
     @staticmethod
-    def __get_request_headers() -> dict:
+    def __get_request_headers() -> Dict:
         return {
             'User-Agent': 'VRV/968 (iPad; iOS 10.2; Scale/2.00)',
             'Accept-Encoding': 'gzip, deflate',

@@ -2,4 +2,6 @@ from .dependencies import LocalSourceProvider, \
     RemoteSourceProvider, \
     RepositoryProvider, \
     UseCaseProvider, \
-    UtilityClientScopeProvider
+    UtilityClientScopeProvider, \
+    MapperScopeProvider, \
+    SourceUtilityProvider

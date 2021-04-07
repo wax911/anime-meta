@@ -9,7 +9,7 @@ from requests_oauthlib import OAuth1Session
 
 from core.util.file_system import FileSystem, Logging
 
-from domain.model import Configuration, Oauth
+from domain.model import Configuration, Oauth, Header
 
 
 class LoggingUtil:
@@ -20,7 +20,7 @@ class LoggingUtil:
     def get_default_logger(self, name: str) -> Logger:
         logging.setLoggerClass(Logging)
         logger = logging.getLogger(name)
-        logger.setLevel(self._attachment['logLevel'])
+        logger.setLevel(self._attachment['log_level'])
         return logger
 
 
@@ -36,15 +36,22 @@ class BaseUtil(object):
     def __build_configuration(attachment: Dict) -> Configuration:
         return Configuration(
             client=attachment['client'],
-            apiKey=attachment['apiKey'],
-            hostName=attachment['hostName'],
+            api_key=attachment['api_key'],
+            base_url=attachment['base_url'],
+            host_name=attachment['host_name'],
             authenticator=attachment['authenticator'],
             oauth=Oauth(
                 key=attachment['oauth']['key'],
                 secret=attachment['oauth']['secret']
             ),
-            timeZone=attachment['timeZone'],
-            logLevel=attachment['logLevel']
+            time_zone=attachment['time_zone'],
+            log_level=attachment['log_level'],
+            headers=Header(
+                user_agent=attachment['header']['user_agent'],
+                accept_encoding=attachment['header']['accept_encoding'],
+                accept=attachment['header']['accept'],
+                accept_language=attachment['header']['accept_language']
+            )
         )
 
 
@@ -54,8 +61,8 @@ class DatabaseUtil(BaseUtil):
         __schema = 'mongodb://'
         __client = self._configuration.client
         __authenticator = self._configuration.authenticator
-        __api_key = self._configuration.apiKey
-        __host_name = self._configuration.hostName
+        __api_key = self._configuration.api_key
+        __host_name = self._configuration.host_name
         return f'{__schema}{__client}:{__api_key}@{__host_name}/{__authenticator}'
 
     def disconnect(self) -> None:
@@ -71,7 +78,7 @@ class TimeUtil(BaseUtil):
         return pytz.utc
 
     def __get_current_tz(self) -> tzinfo:
-        timezone = self._configuration.timeZone
+        timezone = self._configuration.time_zone
         return pytz.timezone(timezone)
 
     def as_local_time(self, time_unit: str, time_unit_format: str = TIME_FORMAT_TEMPLATE) -> datetime:
@@ -108,30 +115,23 @@ class NetworkUtil(BaseUtil):
             client_key=self._configuration.oauth.key,
             client_secret=self._configuration.oauth.secret
         )
-        session.headers = self.__get_request_headers()
+        session.headers = self.__get_request_headers(self._configuration.headers)
         return session
 
     @staticmethod
-    def __get_request_headers() -> Dict:
+    def __get_request_headers(header: Header) -> Dict:
         return {
-            'User-Agent': 'VRV/968 (iPad; iOS 10.2; Scale/2.00)',
-            'Accept-Encoding': 'gzip, deflate',
-            'Accept': '*/*',
-            'Accept-Language': 'en-US;q=1, ja-JP;q=0.9',
+            'User-Agent': header.user_agent,
+            'Accept-Encoding': header.accept_encoding,
+            'Accept': header.accept,
+            'Accept-Language': header.accept_language,
         }
 
-    @staticmethod
-    def __get_base_url() -> str:
-        return 'https://api.vrv.co'
+    def get_authentication_url(self) -> str:
+        return self._configuration.base_url + '/core/'
 
-    @staticmethod
-    def get_authentication_url() -> str:
-        return NetworkUtil.__get_base_url() + '/core/'
+    def get_discover_url(self) -> str:
+        return self._configuration.base_url + '/disc/public/v1/US/M2/-/-/'
 
-    @staticmethod
-    def get_discover_url() -> str:
-        return NetworkUtil.__get_base_url() + '/disc/public/v1/US/M2/-/-/'
-
-    @staticmethod
-    def get_collection_url() -> str:
-        return NetworkUtil.__get_base_url() + '/cms/v2/US/M2/-/'
+    def get_collection_url(self) -> str:
+        return self._configuration.base_url + '/cms/v2/US/M2/-/'

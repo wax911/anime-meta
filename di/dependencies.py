@@ -12,7 +12,7 @@ from data.repository import AuthenticationRepository, EpisodeRepository, IndexRe
     MovieRepository, PanelRepository, SeasonRepository, SeriesRepository
 from data.type_registry import CacheLogEntityCodec, SigningPolicyEntityCodec, IndexEntityCodec, PanelEntityCodec, \
     SeasonEntityCodec, SeriesEntityCodec, EpisodeEntityCodec, MovieEntityCodec, ImageEntityCodec, \
-    ImageContainerEntityCodec, SearchMetaEntityCodec, AdBreakEntityCodec
+    ImageContainerEntityCodec, SearchMetaEntityCodec, AdBreakEntityCodec, SeriesPanelEntityCodec, MoviePanelEntityCodec
 
 from data.usecase import AuthenticationUseCase, EpisodeUseCase, IndexUseCase, \
     MovieUseCase, PanelUseCase, SeasonUseCase, SeriesUseCase
@@ -100,11 +100,10 @@ class LocalSourceProvider:
         timezone_client=UtilityClientScopeProvider.time_zone_client(),
         database_client=UtilityClientScopeProvider.database_client(),
         type_codecs=[
-            PanelEntityCodec(),
             ImageContainerEntityCodec(),
             ImageEntityCodec(),
-            MovieEntityCodec(),
-            SeriesEntityCodec(),
+            MoviePanelEntityCodec(),
+            SeriesPanelEntityCodec(),
             SearchMetaEntityCodec()
         ],
         mapper=MapperScopeProvider.panel_mapper()
@@ -115,7 +114,6 @@ class LocalSourceProvider:
         timezone_client=UtilityClientScopeProvider.time_zone_client(),
         database_client=UtilityClientScopeProvider.database_client(),
         type_codecs=[
-            SeriesEntityCodec(),
             ImageContainerEntityCodec(),
             ImageEntityCodec()
         ],
@@ -127,7 +125,6 @@ class LocalSourceProvider:
         timezone_client=UtilityClientScopeProvider.time_zone_client(),
         database_client=UtilityClientScopeProvider.database_client(),
         type_codecs=[
-            SeasonEntityCodec(),
             ImageContainerEntityCodec(),
             ImageEntityCodec()
         ],
@@ -139,7 +136,6 @@ class LocalSourceProvider:
         timezone_client=UtilityClientScopeProvider.time_zone_client(),
         database_client=UtilityClientScopeProvider.database_client(),
         type_codecs=[
-            EpisodeEntityCodec(),
             ImageContainerEntityCodec(),
             ImageEntityCodec(),
             AdBreakEntityCodec()
@@ -152,7 +148,6 @@ class LocalSourceProvider:
         timezone_client=UtilityClientScopeProvider.time_zone_client(),
         database_client=UtilityClientScopeProvider.database_client(),
         type_codecs=[
-            MovieEntityCodec(),
             ImageContainerEntityCodec(),
             ImageEntityCodec()
         ],
@@ -173,26 +168,27 @@ class SourceUtilityProvider(containers.DeclarativeContainer):
 
 class RemoteSourceProvider(containers.DeclarativeContainer):
     """IoC container of remote sources providers."""
-    __session_client = UtilityClientScopeProvider.network_client().create_session()
+    __network_client = UtilityClientScopeProvider.network_client()
+    __session_client = __network_client.create_session()
 
     authentication_endpoint = providers.Singleton(
         AuthenticationEndpoint,
-        base_url=NetworkUtil.get_authentication_url(),
+        base_url=__network_client.get_authentication_url(),
         client=__session_client
     )
     discover_endpoint = providers.Singleton(
         DiscoverEndpoint,
-        base_url=NetworkUtil.get_discover_url(),
+        base_url=__network_client.get_discover_url(),
         client=__session_client
     )
     collection_endpoint = providers.Singleton(
         CollectionEndpoint,
-        base_url=NetworkUtil.get_collection_url(),
+        base_url=__network_client.get_collection_url(),
         client=__session_client
     )
     detail_endpoint = providers.Singleton(
         DetailEndpoint,
-        base_url=NetworkUtil.get_collection_url(),
+        base_url=__network_client.get_collection_url(),
         client=__session_client
     )
 

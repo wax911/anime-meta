@@ -9,14 +9,24 @@ class Oauth:
 
 
 @dataclass()
+class Header:
+    user_agent: str
+    accept_encoding: str
+    accept: str
+    accept_language: str
+
+
+@dataclass()
 class Configuration:
     client: str
-    apiKey: str
-    hostName: str
+    api_key: str
+    base_url: str
+    host_name: str
     authenticator: str
     oauth: Oauth
-    timeZone: str
-    logLevel: str
+    time_zone: str
+    log_level: str
+    headers: Header
 
 
 @dataclass()

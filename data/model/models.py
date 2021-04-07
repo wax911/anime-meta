@@ -33,7 +33,7 @@ class SeriesPanelModel(Model):
     is_simulcast: bool
     maturity_ratings: List[str]
     last_public_season_number: int
-    last_public_episode_number: int
+    last_public_episode_number: Optional[int]
 
 
 @dataclass()
@@ -105,7 +105,7 @@ class EpisodeModel(Model):
     season_title: str
     season_number: int
     episode: str
-    episode_number: int
+    episode_number: Optional[int]
     sequence_number: Union[int, float]
     production_episode_id: str
     title: str
@@ -124,7 +124,7 @@ class EpisodeModel(Model):
     media_type: str
     slug: str
     images: Optional[ImageContainerModel]
-    duration_ms: int
+    duration_ms: Optional[int]
     ad_breaks: Optional[List[AdBreakModel]]
     is_premium_only: bool
     listing_id: str

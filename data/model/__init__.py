@@ -6,4 +6,4 @@ from .schemas import SigningPolicyContainerSchema, IndexContainerSchema, Collect
 from .models import SigningPolicyModel, EpisodeModel, SeasonModel, SeriesModel, IndexModel, PanelModel, MovieModel, \
     ImageContainerModel, AdBreakModel, SearchMetaModel, ImageModel, SeriesPanelModel, MoviePanelModel, Model
 
-from .wrappers import ResponseWrapper
+from .wrappers import AttributeDict

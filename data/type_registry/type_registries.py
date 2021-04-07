@@ -1,7 +1,8 @@
 from abc import ABC, abstractproperty
 from typing import Dict, Optional
 from bson.codec_options import TypeCodec
-from dacite import from_dict, Config
+from dacite import from_dict, Config, MissingValueError
+from dacite.dataclasses import DefaultValueNotFoundError
 from marshmallow import Schema
 
 from data.entity import Entity, CacheLogEntity, IndexEntity, SigningPolicyEntity, SeriesPanelEntity, \
@@ -19,8 +20,9 @@ class CoreEntityCodec(TypeCodec, ABC):
 
     def transform_python(self, value: Entity) -> Dict:
         """Convert the given Python object into something serializable."""
-        if self._schema_type():
-            _schema_type: type = self._schema_type()
+        if self._schema_type:
+            _schema_type: type = self._schema_type
+            # noinspection PyTypeChecker
             _schema: Schema = _schema_type()
             _dict = _schema.dump(value)
             return _dict
@@ -29,11 +31,16 @@ class CoreEntityCodec(TypeCodec, ABC):
 
     def transform_bson(self, value: Dict) -> Entity:
         """Convert the given BSON value into our own type."""
-        return from_dict(
-            data_class=self.python_type,
-            config=self._config,
-            data=value
-        )
+        try:
+            return from_dict(
+                data_class=self.python_type,
+                config=self._config,
+                data=value
+            )
+        except MissingValueError as e:
+            raise e
+        except DefaultValueNotFoundError as e:
+            raise e
 
     @property
     def bson_type(self) -> type:

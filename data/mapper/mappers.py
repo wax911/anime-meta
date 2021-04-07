@@ -1,6 +1,6 @@
 from abc import ABC
 from logging import Logger
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Union, Any, Iterable
 
 from dacite import from_dict
 
@@ -21,9 +21,8 @@ class CoreMapper(ABC):
             logging_client: LoggingUtil
     ) -> None:
         """
-
-        :param response_key:
-        :param logging_client:
+        :param response_key: Optional key used to unpack a response
+        :param logging_client: Logging utility
         """
         self._response_key = response_key
         self._logger = logging_client.get_default_logger(__name__)
@@ -37,11 +36,21 @@ class CoreMapper(ABC):
         pass
 
     def to_model(self, response: Union[Dict, Model]) -> Union[Any, Model, List[Model]]:
+        """
+        Produces a model or list of models
+        :param response: Network client response
+        :return: Data layer model/s
+        """
         if isinstance(response, dict) and self._response_key:
             return response[self._response_key]
         return response
 
     def to_entity(self, model: Union[Model, List[Model]]) -> Union[Entity, List[Entity]]:
+        """
+        Produces a entity or list of entities
+        :param model: Model to convert to entity
+        :return: Data layer entity/s
+        """
         pass
 
 

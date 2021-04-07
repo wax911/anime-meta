@@ -1,13 +1,25 @@
+from logging import Logger
+
 from marshmallow import EXCLUDE
-from uplink import get, timeout, retry, ratelimit, Consumer, Query, Path
+from uplink import get, timeout, retry, ratelimit, Consumer, Query, Path, error_handler
 
 from data.model import SigningPolicyContainerSchema, IndexContainerSchema, CollectionContainerSchema, \
     MovieSchema, SeriesSchema, EpisodeContainerSchema, SeasonContainerSchema
+
 
 __TIME_OUT__: int = 25
 __MAX_ATTEMPTS__: int = 5
 __RATE_LIMIT_CALLS__: int = 5
 __RATE_LIMIT_PERIOD_CALLS__: int = 10
+
+
+@error_handler(requires_consumer=True)
+def raise_api_error(exc_type, exc_val, exc_tb):
+    # wrap client error with custom API error
+    from di import UtilityClientScopeProvider
+    __logging_client = UtilityClientScopeProvider.logging_client()
+    logger: Logger = __logging_client.get_default_logger(__name__)
+    logger.warning(msg="Exception caught")
 
 
 @timeout(

@@ -1,23 +1,25 @@
 from logging import Logger
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, MutableMapping
 
 from bson import CodecOptions
 from bson.codec_options import TypeRegistry
 from mongo_thingy import Thingy
 from mongo_thingy.cursor import Cursor
-from pymongo import MongoClient, ReplaceOne
+from pymongo import MongoClient, ReplaceOne, InsertOne
 from pymongo.collection import Collection
 from pymongo.database import Database
 from pymongo.errors import ConfigurationError
-from pymongo.results import InsertManyResult, BulkWriteResult, DeleteResult, UpdateResult
+from pymongo.results import BulkWriteResult, DeleteResult, UpdateResult
 
 from data import TimeUtil, LoggingUtil, DatabaseUtil
-from data.type_registry import CoreEntityCodec
-from data.model import IndexModel, SigningPolicyModel, PanelModel, SeasonModel, SeriesModel, MovieModel, EpisodeModel
 from data.entity import CacheLogEntity, SigningPolicyEntity, IndexEntity, Entity, PanelEntity, SeasonEntity, \
     EpisodeEntity, MovieEntity, SeriesEntity
 from data.mapper import SigningPolicyMapper, IndexMapper, EpisodeMapper, MovieMapper, SeriesMapper, \
     SeasonMapper, PanelMapper
+from data.model import IndexModel, SigningPolicyModel, PanelModel, SeasonModel, SeriesModel, MovieModel, EpisodeModel, \
+    AttributeDict
+from data.type_registry import CoreEntityCodec, PanelEntityCodec, SeriesEntityCodec, SeasonEntityCodec, \
+    MovieEntityCodec, EpisodeEntityCodec
 
 
 class Dao(Thingy):
@@ -34,7 +36,7 @@ class Dao(Thingy):
         super().__init__()
         self._logger = logger_client.get_default_logger(__name__)
         self._timezone_client = timezone_client
-        self._type_registry = TypeRegistry(type_codecs)
+        self._type_codecs = type_codecs
         self.__start_database(database_client, self._logger)
 
     @classmethod
@@ -48,7 +50,7 @@ class Dao(Thingy):
         try:
             cls._database = cls._client.get_database()
         except ConfigurationError as e:
-            logger.error(
+            logger.debug(
                 f'Configuration error prevented database from connecting: {__connection_uri}',
                 exc_info=e
             )
@@ -60,7 +62,7 @@ class Dao(Thingy):
             cls._client = None
             cls._database = None
         except Exception as e:
-            logger.warning(msg='Unable to disconnect from database', exc_info=e)
+            logger.info(msg='Unable to disconnect from database', exc_info=e)
 
     def _get_current_timestamp(self) -> int:
         return self._timezone_client.get_current_timestamp()
@@ -90,17 +92,23 @@ class Dao(Thingy):
         )
         # return super().get_collection()
 
-    def get_db_collection(self):
+    @classmethod
+    def get_db_collection(
+            cls,
+            type_codecs: [CoreEntityCodec],
+            document_class: MutableMapping = AttributeDict
+    ):
         """
         Provide a collection with codec options
         :return: Collection for the current database connection
         """
-        db: Database = self.get_database()
+        db: Database = cls.get_database()
         codec_options = CodecOptions(
-            type_registry=self._type_registry
+            document_class=document_class,
+            type_registry=TypeRegistry(type_codecs)
         )
         return db.get_collection(
-            name=self._collection_name,
+            name=cls._collection_name,
             codec_options=codec_options
         )
 
@@ -131,7 +139,9 @@ class CacheLogDao(Dao):
 
     def save_or_update_cache_entry(self, cache_log: CacheLogEntity) -> UpdateResult:
         update_filter = self.__create_filter(cache_log)
-        result: UpdateResult = self.get_db_collection().update_one(
+        result: UpdateResult = self.get_db_collection(
+            type_codecs=self._type_codecs
+        ).update_one(
             filter=update_filter,
             update={
                 '$set': cache_log
@@ -144,7 +154,9 @@ class CacheLogDao(Dao):
         return result
 
     def get_cache_log_entry(self, search_filter: Dict) -> Optional[CacheLogEntity]:
-        entity: Optional[CacheLogEntity] = self.get_db_collection().find_one(
+        entity: Optional[CacheLogEntity] = self.get_db_collection(
+            type_codecs=self._type_codecs
+        ).find_one(
             filter=search_filter,
             projection=self.__DEFAULT_PROJECTION__
         )
@@ -171,7 +183,9 @@ class AuthenticationDao(Dao):
                 '$lt': self._get_current_timestamp()
             }
         }
-        delete_result: DeleteResult = self.get_db_collection().delete_many(filter=query)
+        delete_result: DeleteResult = self.get_db_collection(
+            type_codecs=self._type_codecs
+        ).delete_many(filter=query)
         deleted_count = delete_result.deleted_count
         if deleted_count > 0:
             self._logger.info(
@@ -188,17 +202,39 @@ class AuthenticationDao(Dao):
                 '$options': 'g'
             }
         }
-        valid_session_could = self.get_db_collection().count_documents(query)
+        valid_session_could = self.get_db_collection(
+            type_codecs=self._type_codecs
+        ).count_documents(query)
         self._logger.debug(f'Query results for query: {query} returned `{valid_session_could}` results')
         return valid_session_could > 0
 
-    def save_or_update(self, response: Dict) -> InsertManyResult:
+    @staticmethod
+    def _map_to_replace_query(entity: SigningPolicyEntity) -> InsertOne:
+        return InsertOne(
+            document=dict(entity)
+        )
+
+    def __add_items(self, entities: List[SigningPolicyEntity]) -> List[InsertOne]:
+        replacements = map(self._map_to_replace_query, entities)
+        return list(replacements)
+
+    def save_or_update(self, response: Dict) -> BulkWriteResult:
         self.__assure_only_valid_sessions_exist()
         model: List[SigningPolicyModel] = self.mapper.to_model(response)
-        singing_policies: List[SigningPolicyEntity] = self.mapper.to_entity(model)
-        insert_result: InsertManyResult = self.get_db_collection().insert_many(singing_policies)
-        self._logger.info(f'Inserted signing policies for transaction -> {insert_result.inserted_ids}')
-        return insert_result
+        entities: List[SigningPolicyEntity] = self.mapper.to_entity(model)
+        replacement_items = self.__add_items(entities)
+        try:
+            bulk_write_result: BulkWriteResult = self.get_db_collection(
+                type_codecs=self._type_codecs
+            ).bulk_write(replacement_items)
+            self._logger.info(
+                f'{self._collection_name} bulk write results -> updated or inserted: {bulk_write_result.upserted_ids}'
+            )
+            return bulk_write_result
+        except Exception as e:
+            self._logger.warning(
+                f'Unable to persist to collection: {self._collection_name} -> {replacement_items}', e
+            )
 
     def fetch_policy_matching(self, path_type: str) -> List[SigningPolicyEntity]:
         query = {
@@ -207,8 +243,10 @@ class AuthenticationDao(Dao):
                 '$options': 'g'
             }
         }
-        cursor = self.get_db_collection().find(
-            filter=query, projection={'_id': False}
+        cursor = self.get_db_collection(
+            type_codecs=self._type_codecs
+        ).find(
+            filter=query, projection=self.__DEFAULT_PROJECTION__
         )
         return list(cursor)
 
@@ -233,7 +271,7 @@ class IndexDao(Dao):
             filter={
                 'prefix': entity.prefix
             },
-            replacement=entity,
+            replacement=dict(entity),
             upsert=True
         )
 
@@ -246,7 +284,9 @@ class IndexDao(Dao):
         entities: List[IndexEntity] = self.mapper.to_entity(models)
         replacement_items = self.__replace_items(entities)
         try:
-            bulk_write_result: BulkWriteResult = self.get_db_collection().bulk_write(replacement_items)
+            bulk_write_result: BulkWriteResult = self.get_db_collection(
+                type_codecs=self._type_codecs
+            ).bulk_write(replacement_items)
             self._logger.info(
                 f'{self._collection_name} bulk write results -> updated or inserted: {bulk_write_result.upserted_ids}'
             )
@@ -257,7 +297,9 @@ class IndexDao(Dao):
             )
 
     def fetch_index_list(self) -> List[IndexEntity]:
-        cursor: Cursor = self.get_db_collection().find(
+        cursor: Cursor = self.get_db_collection(
+            type_codecs=self._type_codecs
+        ).find(
             projection=self.__DEFAULT_PROJECTION__
         )
         return list(cursor)
@@ -283,7 +325,7 @@ class PanelDao(Dao):
             filter={
                 'id': entity.id
             },
-            replacement=entity,
+            replacement=dict(entity),
             upsert=True
         )
 
@@ -296,7 +338,9 @@ class PanelDao(Dao):
         entities: List[PanelEntity] = self.mapper.to_entity(models)
         replacement_items = self.__replace_items(entities)
         try:
-            bulk_write_result: BulkWriteResult = self.get_db_collection().bulk_write(replacement_items)
+            bulk_write_result: BulkWriteResult = self.get_db_collection(
+                type_codecs=self._type_codecs
+            ).bulk_write(replacement_items)
             self._logger.info(
                 f'{self._collection_name} bulk write results -> updated or inserted: {bulk_write_result.upserted_ids}'
             )
@@ -307,7 +351,9 @@ class PanelDao(Dao):
             )
 
     def fetch_catalogue_list(self) -> List[PanelEntity]:
-        cursor: Cursor = self.get_db_collection().find(
+        cursor: Cursor = self.get_db_collection(
+            type_codecs=self._type_codecs + [PanelEntityCodec()]
+        ).find(
             projection=self.__DEFAULT_PROJECTION__
         )
         return list(cursor)
@@ -333,7 +379,7 @@ class SeasonDao(Dao):
             filter={
                 'id': entity.id
             },
-            replacement=entity,
+            replacement=dict(entity),
             upsert=True
         )
 
@@ -346,7 +392,9 @@ class SeasonDao(Dao):
         entities: List[SeasonEntity] = self.mapper.to_entity(models)
         replacement_items = self.__replace_items(entities)
         try:
-            bulk_write_result: BulkWriteResult = self.get_db_collection().bulk_write(replacement_items)
+            bulk_write_result: BulkWriteResult = self.get_db_collection(
+                type_codecs=self._type_codecs
+            ).bulk_write(replacement_items)
             self._logger.info(
                 f'{self._collection_name} bulk write results -> updated or inserted: {bulk_write_result.upserted_ids}'
             )
@@ -357,7 +405,9 @@ class SeasonDao(Dao):
             )
 
     def fetch_season_list(self) -> List[SeasonEntity]:
-        cursor: Cursor = self.get_db_collection().find(
+        cursor: Cursor = self.get_db_collection(
+            type_codecs=self._type_codecs + [SeasonEntityCodec()]
+        ).find(
             projection=self.__DEFAULT_PROJECTION__
         )
         return list(cursor)
@@ -383,7 +433,7 @@ class SeriesDao(Dao):
             filter={
                 'id': entity.id
             },
-            replacement=entity,
+            replacement=dict(entity),
             upsert=True
         )
 
@@ -391,7 +441,9 @@ class SeriesDao(Dao):
         entity = self.mapper.to_entity(response)
         replacement_items = [self._map_to_replace_query(entity)]
         try:
-            bulk_write_result: BulkWriteResult = self.get_db_collection().bulk_write(replacement_items)
+            bulk_write_result: BulkWriteResult = self.get_db_collection(
+                type_codecs=self._type_codecs
+            ).bulk_write(replacement_items)
             self._logger.info(
                 f'{self._collection_name} bulk write results -> updated or inserted: {bulk_write_result.upserted_ids}'
             )
@@ -402,7 +454,9 @@ class SeriesDao(Dao):
             )
 
     def fetch_series_list(self) -> List[SeriesEntity]:
-        cursor: Cursor = self.get_db_collection().find(
+        cursor: Cursor = self.get_db_collection(
+            type_codecs=self._type_codecs + [SeriesEntityCodec()]
+        ).find(
             projection=self.__DEFAULT_PROJECTION__
         )
         return list(cursor)
@@ -428,7 +482,7 @@ class MovieDao(Dao):
             filter={
                 'id': entity.id
             },
-            replacement=entity,
+            replacement=dict(entity),
             upsert=True
         )
 
@@ -436,7 +490,9 @@ class MovieDao(Dao):
         entity: MovieEntity = self.mapper.to_entity(response)
         replacement_items = [self._map_to_replace_query(entity)]
         try:
-            bulk_write_result: BulkWriteResult = self.get_db_collection().bulk_write(replacement_items)
+            bulk_write_result: BulkWriteResult = self.get_db_collection(
+                type_codecs=self._type_codecs
+            ).bulk_write(replacement_items)
             self._logger.info(
                 f'{self._collection_name} bulk write results -> updated or inserted: {bulk_write_result.upserted_ids}'
             )
@@ -447,7 +503,9 @@ class MovieDao(Dao):
             )
 
     def fetch_movie_list(self) -> List[MovieEntity]:
-        cursor: Cursor = self.get_db_collection().find(
+        cursor: Cursor = self.get_db_collection(
+            type_codecs=self._type_codecs + [MovieEntityCodec()]
+        ).find(
             projection=self.__DEFAULT_PROJECTION__
         )
         return list(cursor)
@@ -473,7 +531,7 @@ class EpisodeDao(Dao):
             filter={
                 'id': entity.id
             },
-            replacement=entity,
+            replacement=dict(entity),
             upsert=True
         )
 
@@ -486,7 +544,9 @@ class EpisodeDao(Dao):
         entities: List[EpisodeEntity] = self.mapper.to_entity(models)
         replacement_items = self.__replace_items(entities)
         try:
-            bulk_write_result: BulkWriteResult = self.get_db_collection().bulk_write(replacement_items)
+            bulk_write_result: BulkWriteResult = self.get_db_collection(
+                type_codecs=self._type_codecs
+            ).bulk_write(replacement_items)
             self._logger.info(
                 f'{self._collection_name} bulk write results -> updated or inserted: {bulk_write_result.upserted_ids}'
             )
@@ -497,7 +557,9 @@ class EpisodeDao(Dao):
             )
 
     def fetch_episode_list(self) -> List[EpisodeEntity]:
-        cursor: Cursor = self.get_db_collection().find(
+        cursor: Cursor = self.get_db_collection(
+            type_codecs=self._type_codecs + [EpisodeEntityCodec()]
+        ).find(
             projection=self.__DEFAULT_PROJECTION__
         )
         return list(cursor)

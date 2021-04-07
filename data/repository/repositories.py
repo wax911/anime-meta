@@ -1,3 +1,4 @@
+from json import JSONDecodeError
 from typing import List, Optional, Dict, Iterable
 
 from mongo_thingy import Thingy
@@ -31,7 +32,11 @@ class AuthenticationRepository(IRepository):
     _local_source: AuthenticationDao
 
     def __make_request(self) -> Optional[Dict]:
-        return self._remote_source.get_authorization_token()
+        try:
+            return self._remote_source.get_authorization_token()
+        except JSONDecodeError as e:
+            self._logger.error(f"Failed to authenticate: {e.doc}", exc_info=e)
+            return None
 
     async def signing_policies(self, path_type: str = 'cms') -> List[SigningPolicyEntity]:
         if not self._local_source.contains_valid_sessions(path_type):
@@ -66,12 +71,16 @@ class IndexRepository(IRepository):
             service: str,
             signing_policies: List[SigningPolicyEntity]
     ) -> Optional[Dict]:
-        return self._remote_source.get_index(
-            channel_id=service,
-            policy=signing_policies[0].value,
-            signature=signing_policies[1].value,
-            key_pair=signing_policies[2].value
-        )
+        try:
+            return self._remote_source.get_index(
+                channel_id=service,
+                policy=signing_policies[0].value,
+                signature=signing_policies[1].value,
+                key_pair=signing_policies[2].value
+            )
+        except JSONDecodeError as e:
+            self._logger.error(f"Failed to request signing  policies: {e.doc}", exc_info=e)
+            return None
 
     @staticmethod
     def _from_entity(entities: List[IndexEntity]) -> Iterable[Index]:
@@ -81,6 +90,7 @@ class IndexRepository(IRepository):
                 offset=entity.offset,
                 count=entity.count
             )
+
         return map(map_to, entities)
 
     async def index(self, service: str) -> Iterable[Index]:
@@ -117,16 +127,20 @@ class PanelRepository(IRepository):
             index: Index,
             signing_policies: List[SigningPolicyEntity]
     ) -> Optional[Dict]:
-        return self._remote_source.get_catalogue_by_prefix(
-            channel_id=service,
-            sort_by='alphabetical',
-            start=0,
-            count=index.count,
-            query=index.prefix,
-            policy=signing_policies[0].value,
-            signature=signing_policies[1].value,
-            key_pair=signing_policies[2].value
-        )
+        try:
+            return self._remote_source.get_catalogue_by_prefix(
+                channel_id=service,
+                sort_by='alphabetical',
+                start=0,
+                count=index.count,
+                query=index.prefix,
+                policy=signing_policies[0].value,
+                signature=signing_policies[1].value,
+                key_pair=signing_policies[2].value
+            )
+        except JSONDecodeError as e:
+            self._logger.error(f"Request failed with reason: {e.doc}", exc_info=e)
+            return None
 
     async def panel(self, service: str, index: Index) -> None:
         key = self._local_source.get_collection_name()
@@ -179,12 +193,16 @@ class SeasonRepository(IRepository):
             series: Series,
             signing_policies: List[SigningPolicyEntity]
     ) -> Optional[Dict]:
-        return self._remote_source.get_seasons_for_series_id(
-            series_id=series.id,
-            policy=signing_policies[0].value,
-            signature=signing_policies[1].value,
-            key_pair=signing_policies[2].value
-        )
+        try:
+            return self._remote_source.get_seasons_for_series_id(
+                series_id=series.id,
+                policy=signing_policies[0].value,
+                signature=signing_policies[1].value,
+                key_pair=signing_policies[2].value
+            )
+        except JSONDecodeError as e:
+            self._logger.error(f"Request failed with reason: {e.doc}", exc_info=e)
+            return None
 
     async def seasons(self, series: Series) -> None:
         key = self._local_source.get_collection_name()
@@ -237,12 +255,16 @@ class SeriesRepository(IRepository):
             panel: Panel,
             signing_policies: List[SigningPolicyEntity]
     ) -> Optional[SeriesModel]:
-        return self._remote_source.get_series_by_id(
-            series_id=panel.id,
-            policy=signing_policies[0].value,
-            signature=signing_policies[1].value,
-            key_pair=signing_policies[2].value
-        )
+        try:
+            return self._remote_source.get_series_by_id(
+                series_id=panel.id,
+                policy=signing_policies[0].value,
+                signature=signing_policies[1].value,
+                key_pair=signing_policies[2].value
+            )
+        except JSONDecodeError as e:
+            self._logger.error(f"Request failed with reason: {e.doc}", exc_info=e)
+            return None
 
     async def series(self, panel: Panel) -> None:
         key = self._local_source.get_collection_name()
@@ -269,6 +291,7 @@ class SeriesRepository(IRepository):
                 is_subbed=entity.is_subbed,
                 is_dubbed=entity.is_dubbed
             )
+
         return map(map_to, entities)
 
     async def all_series(self) -> Iterable[Series]:
@@ -298,12 +321,16 @@ class MovieRepository(IRepository):
             panel: Panel,
             signing_policies: List[SigningPolicyEntity]
     ) -> Optional[MovieModel]:
-        return self._remote_source.get_movie_by_id(
-            movie_id=panel.id,
-            policy=signing_policies[0].value,
-            signature=signing_policies[1].value,
-            key_pair=signing_policies[2].value
-        )
+        try:
+            return self._remote_source.get_movie_by_id(
+                movie_id=panel.id,
+                policy=signing_policies[0].value,
+                signature=signing_policies[1].value,
+                key_pair=signing_policies[2].value
+            )
+        except JSONDecodeError as e:
+            self._logger.error(f"Request failed with reason: {e.doc}", exc_info=e)
+            return None
 
     async def movie(self, panel: Panel) -> None:
         key = self._local_source.get_collection_name()
@@ -328,6 +355,7 @@ class MovieRepository(IRepository):
                 is_subbed=entity.is_subbed,
                 is_dubbed=entity.is_dubbed
             )
+
         return map(map_to, entities)
 
     async def all_movies(self) -> Iterable[Movie]:
@@ -357,12 +385,16 @@ class EpisodeRepository(IRepository):
             season: Season,
             signing_policies: List[SigningPolicyEntity]
     ) -> Optional[Dict]:
-        return self._remote_source.get_episodes_for_season(
-            season_id=season.id,
-            policy=signing_policies[0].value,
-            signature=signing_policies[1].value,
-            key_pair=signing_policies[2].value
-        )
+        try:
+            return self._remote_source.get_episodes_for_season(
+                season_id=season.id,
+                policy=signing_policies[0].value,
+                signature=signing_policies[1].value,
+                key_pair=signing_policies[2].value
+            )
+        except JSONDecodeError as e:
+            self._logger.error(f"Request failed with reason: {e.doc}", exc_info=e)
+            return None
 
     async def episode(self, season: Season) -> None:
         key = self._local_source.get_collection_name()
@@ -391,6 +423,7 @@ class EpisodeRepository(IRepository):
                 media_type=entity.media_type,
                 duration_ms=entity.duration_ms
             )
+
         return map(map_to, entities)
 
     async def all_episodes(self) -> Iterable[Episode]:

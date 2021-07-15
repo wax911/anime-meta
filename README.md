@@ -1,12 +1,12 @@
 ## :penguin: :snake: anime-meta :penguin: :snake:
 
 A personal project for generating an anime database using MongoDB, this project solely exists as a learning experience
-for apply OOP principles like DI, Abstraction, Inheritance and Polymorphism with an emphasis on type hints.
+for applying OOP principles like DI, Abstraction, Inheritance and Polymorphism in python with an emphasis on type hints.
 
 ### Architecture
 
-This project tries adopts techniques typically found in [clean architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html), thus all
-network models used to fetch data from the sample api are only used internally in the **data** layer while application specific models (aka entities) can 
+This project adopts techniques typically found in [clean architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html), thus all
+network models used to fetch data from the sample api are only used internally in the **data** layer, while application specific models (aka entities) can 
 be found in the **domain** layer.
 
 ### Dependencies
